@@ -16,7 +16,8 @@ days = st.sidebar.slider(
     value=1
 )
 if st.sidebar.button("Aktualisieren"):
-    st.experimental_rerun()
+    st.rerun()  # Korrekte Methode für Streamlit >= 1.16
+
 
 # --- Funktion zum Abrufen der Studien über die KORREKTE API ---
 @st.cache_data(ttl=3600)
