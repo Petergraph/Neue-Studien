@@ -18,56 +18,60 @@ days = st.sidebar.slider(
 if st.sidebar.button("Aktualisieren"):
     st.experimental_rerun()
 
-# --- Funktion zum Abrufen der Studien über API V1 ---
+# --- Funktion zum Abrufen der Studien über die KORREKTE API ---
 @st.cache_data(ttl=3600)
 def fetch_new_studies(days: int):
-    """
-    Ruft alle Studien ab, deren "First Posted"-Datum in den letzten `days` Tagen liegt
-    über die Version 1 API (study_fields endpoint).
-    """
     today = datetime.date.today()
     start = today - datetime.timedelta(days=days)
-    # Baue Suche mit RANGE und US-Datum
-    search_range = f"AREA[FirstPosted]RANGE[{start.strftime('%m/%d/%Y')} TO {today.strftime('%m/%d/%Y')}]"  # Verwende 'TO' statt Komma für die V1 API
+    
+    # Korrektes Datumsformat und API-Syntax
+    search_expr = f'AREA[FirstPosted]RANGE["{start.isoformat()}","{today.isoformat()}"]'  # ISO-Format YYYY-MM-DD
+    
     params = {
-        "expr": search_range,  # V1 API uses 'expr'
-        "fields": "NCTId,Condition,FirstPosted,BriefTitle",
+        "expr": search_expr,
+        "fields": "NCTId,Condition,BriefTitle,FirstPosted",
         "min_rnk": 1,
-        "max_rnk": 10000,
+        "max_rnk": 1000,  # Maximalwert laut API-Dokumentation
         "fmt": "json"
     }
+    
     try:
+        # Verwende die klassische API-Endpunkt
         r = requests.get(
-            "https://clinicaltrials.gov/api/query/study_fields",
+            "https://classic.clinicaltrials.gov/api/query/study_fields",  # Korrektes Endpoint
             params=params
         )
         r.raise_for_status()
         data = r.json()
         return data.get("StudyFieldsResponse", {}).get("StudyFields", [])
-    except requests.HTTPError as e:
-        st.error(f"Fehler beim Abrufen der Daten: {e}")
+    except Exception as e:
+        st.error(f"API-Fehler: {str(e)}")
         return []
 
-# --- Daten holen und gruppieren ---
+# --- Datenverarbeitung ---
 with st.spinner("Hole Daten …"):
     studies = fetch_new_studies(days)
 
-# Gruppierung nach Condition für V1 API Response
-grouped = defaultdict(list)
-for s in studies:
-    nct = s.get("NCTId", [None])[0]
-    date_fp = s.get("FirstPosted", [None])[0]
-    title = s.get("BriefTitle", [""])[0]
-    conditions = s.get("Condition", [])
-    for cond in conditions:
-        grouped[cond].append({
-            "NCTId": nct,
-            "Title": title,
-            "FirstPosted": date_fp
+# Datenaufbereitung
+study_list = []
+for study in studies:
+    try:
+        study_list.append({
+            "NCTId": study.get("NCTId", [""])[0],
+            "Titel": study.get("BriefTitle", [""])[0],
+            "Erstveröffentlichung": study.get("FirstPosted", [""])[0],
+            "Bedingungen": ", ".join(study.get("Condition", []))
         })
+    except Exception as e:
+        st.error(f"Datenfehler: {str(e)}")
 
-# --- Anzeige sortiert nach Anzahl Studien pro Condition ---
-for cond, items in sorted(grouped.items(), key=lambda x: -len(x[1])):
-    st.subheader(f"{cond} ({len(items)})")
-    df = pd.DataFrame(items)
-    st.dataframe(df, height=200)
+df = pd.DataFrame(study_list)
+
+# --- Anzeige ---
+if not df.empty:
+    st.dataframe(
+        df,
+        column_config={
+            "NCTId": "Studien-ID",
+            "Titel": "Titel",
+
