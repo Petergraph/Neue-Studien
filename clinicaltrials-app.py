@@ -14,11 +14,16 @@ if st.sidebar.button("Aktualisieren"):
     st.experimental_rerun()
 
 # --- Funktion zum Abrufen der Studien ---
-@st.cache_data(ttl=3600)  # Cache für 1 Stunde
+@st.cache_data(ttl=3600)
 def fetch_new_studies(days: int):
+    """
+    Ruft alle Studien ab, deren "First Posted"-Datum in den letzten `days` Tagen liegt.
+    Bei HTTP-Fehlern wird eine leere Liste zurückgegeben und eine Fehlermeldung geloggt.
+    """
     today = datetime.date.today()
     start = today - datetime.timedelta(days=days)
-    expr = f"AREA[FirstPosted]RANGE[{start.isoformat()} {today.isoformat()}]"
+    # RANGE-Syntax mit Komma für Start- und Enddatum
+    expr = f"AREA[FirstPosted]RANGE[{start.isoformat()},{today.isoformat()}]"
     params = {
         "expr": expr,
         "fields": "NCTId,Condition,FirstPosted,BriefTitle",
@@ -26,11 +31,18 @@ def fetch_new_studies(days: int):
         "max_rnk": 10000,
         "fmt": "json"
     }
-    r = requests.get("https://clinicaltrials.gov/api/query/study_fields", params=params)
-    r.raise_for_status()
-    return r.json()["StudyFieldsResponse"]["StudyFields"]
+    try:
+        r = requests.get("https://clinicaltrials.gov/api/query/study_fields", params=params)
+        r.raise_for_status()
+        return r.json()["StudyFieldsResponse"]["StudyFields"]
+    except requests.HTTPError as e:
+        st.error(f"Fehler beim Abrufen der Daten: {e}")
+        return []
 
 # --- Daten holen und gruppieren ---
+with st.spinner("Hole Daten …"):
+    studies = fetch_new_studies(days)
+
 with st.spinner("Hole Daten …"):
     studies = fetch_new_studies(days)
 grouped = defaultdict(list)
