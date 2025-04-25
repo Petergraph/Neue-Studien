@@ -68,10 +68,20 @@ for study in studies:
 df = pd.DataFrame(study_list)
 
 # --- Anzeige ---
+# --- Anzeige ---
 if not df.empty:
     st.dataframe(
         df,
         column_config={
             "NCTId": "Studien-ID",
             "Titel": "Titel",
+            "Erstveröffentlichung": "Veröffentlichungsdatum",
+            "Bedingungen": "Krankheitsbilder"
+        },  # Geschlossene geschweifte Klammer
+        hide_index=True,
+        use_container_width=True
+    )  # Geschlossene runde Klammer
+else:
+    st.info("Keine neuen Studien im ausgewählten Zeitraum gefunden")
+
 
