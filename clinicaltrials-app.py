@@ -28,7 +28,7 @@ def fetch_new_studies(days: int):
     today = datetime.date.today()
     start = today - datetime.timedelta(days=days)
     # Baue Suche mit RANGE und US-Datum
-    search_range = f"AREA[FirstPosted]RANGE[{start.strftime('%m/%d/%Y')},{today.strftime('%m/%d/%Y')}]"
+    search_range = f"AREA[FirstPosted]RANGE[{start.strftime('%m/%d/%Y')} TO {today.strftime('%m/%d/%Y')}]"  # Verwende 'TO' statt Komma für die V1 API
     params = {
         "expr": search_range,  # V1 API uses 'expr'
         "fields": "NCTId,Condition,FirstPosted,BriefTitle",
