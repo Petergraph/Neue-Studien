@@ -18,38 +18,42 @@ days = st.sidebar.slider(
 if st.sidebar.button("Aktualisieren"):
     st.experimental_rerun()
 
-# --- Funktion zum Abrufen der Studien über API V2 ---
+# --- Funktion zum Abrufen der Studien über API V1 ---
 @st.cache_data(ttl=3600)
 def fetch_new_studies(days: int):
     """
     Ruft alle Studien ab, deren "First Posted"-Datum in den letzten `days` Tagen liegt
-    über die Version 2 API. Da der V2-Endpunkt keine RANGE-Query für Datum unterstützt,
-    wird jeder Tag einzeln abgefragt und die Resultate zusammengeführt.
+    über die Version 1 API (study_fields endpoint).
     """
     studies = []
     today = datetime.date.today()
     start = today - datetime.timedelta(days=days)
-    for n in range(days + 1):
-        d = start + datetime.timedelta(days=n)
-        params = {
-            # Filter nach Einzeltag in ISO-Format YYYY-MM-DD
-            "query.firstSubmittedDate": d.isoformat(),
-            "pageSize": 1000,
-            "format": "json"
-        }
-        try:
-            r = requests.get(
-                "https://clinicaltrials.gov/api/v2/studies",
-                params=params
-            )
-            r.raise_for_status()
-            data = r.json()
-            studies.extend(data.get("studies", []))
-        except requests.HTTPError as e:
-            st.error(f"Fehler beim Abrufen der Daten für {d}: {e}")
-    return studies
+    # Baue Suche mit RANGE und US-Datum
+    search_range = f"AREA[FirstPosted]RANGE[{start.strftime('%m/%d/%Y')},{today.strftime('%m/%d/%Y')}]"
+    params = {
+        # searchExpr für V1 API
+        "searchExpr": search_range,
+        "fields": "NCTId,Condition,FirstPosted,BriefTitle",
+        "min_rnk": 1,
+        "max_rnk": 10000,
+        "fmt": "json"
+    }
+    try:
+        r = requests.get(
+            "https://clinicaltrials.gov/api/query/study_fields",
+            params=params
+        )
+        r.raise_for_status()
+        data = r.json()
+        return data.get("StudyFieldsResponse", {}).get("StudyFields", [])
+    except requests.HTTPError as e:
+        st.error(f"Fehler beim Abrufen der Daten: {e}")
+        return []
 
 # --- Daten holen und gruppieren ---
+with st.spinner("Hole Daten …"):
+    studies = fetch_new_studies(days)
+
 with st.spinner("Hole Daten …"):
     studies = fetch_new_studies(days)
 
