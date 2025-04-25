@@ -23,7 +23,7 @@ def fetch_new_studies(days: int):
     today = datetime.date.today()
     start = today - datetime.timedelta(days=days)
     # RANGE-Syntax mit Komma für Start- und Enddatum
-    expr = f"AREA[FirstPosted]RANGE[{start.isoformat()},{today.isoformat()}]"
+    expr = f"AREA[FirstPosted]RANGE[{start.strftime('%m/%d/%Y')},{today.strftime('%m/%d/%Y')}]"  # API erwartet US-Datumsformat MM/DD/YYYY
     params = {
         "expr": expr,
         "fields": "NCTId,Condition,FirstPosted,BriefTitle",
