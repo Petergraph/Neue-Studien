@@ -25,14 +25,12 @@ def fetch_new_studies(days: int):
     Ruft alle Studien ab, deren "First Posted"-Datum in den letzten `days` Tagen liegt
     über die Version 1 API (study_fields endpoint).
     """
-    studies = []
     today = datetime.date.today()
     start = today - datetime.timedelta(days=days)
     # Baue Suche mit RANGE und US-Datum
     search_range = f"AREA[FirstPosted]RANGE[{start.strftime('%m/%d/%Y')},{today.strftime('%m/%d/%Y')}]"
     params = {
-        # searchExpr für V1 API
-        "searchExpr": search_range,
+        "expr": search_range,  # V1 API uses 'expr'
         "fields": "NCTId,Condition,FirstPosted,BriefTitle",
         "min_rnk": 1,
         "max_rnk": 10000,
@@ -54,21 +52,13 @@ def fetch_new_studies(days: int):
 with st.spinner("Hole Daten …"):
     studies = fetch_new_studies(days)
 
-with st.spinner("Hole Daten …"):
-    studies = fetch_new_studies(days)
-
+# Gruppierung nach Condition für V1 API Response
 grouped = defaultdict(list)
 for s in studies:
-    ps = s.get("protocolSection", {})
-    idmod = ps.get("identificationModule", {})
-    nct = idmod.get("nctId", "")
-    date_fp = idmod.get("firstSubmittedDate", "")
-    title = idmod.get("officialTitle", "")
-    conditions = (
-        ps.get("conditionsModule", {})
-          .get("conditionList", {})
-          .get("condition", [])
-    )
+    nct = s.get("NCTId", [None])[0]
+    date_fp = s.get("FirstPosted", [None])[0]
+    title = s.get("BriefTitle", [""])[0]
+    conditions = s.get("Condition", [])
     for cond in conditions:
         grouped[cond].append({
             "NCTId": nct,
